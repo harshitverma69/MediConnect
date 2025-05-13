@@ -11,6 +11,7 @@ import adminRouter from "./routes/adminRoute.js"
 const app = express()
 const port = process.env.PORT || 4000
 
+app.use(cors())
 // Connect to Database and Cloudinary
 const initializeConnections = async () => {
   try {
@@ -28,10 +29,7 @@ initializeConnections();
 
 // middlewares
 app.use(express.json())
-app.use(cors({
-  origin: "http://localhost:5173", // Allow requests from frontend
-  credentials: true // If you're using cookies or authorization headers
-}))
+
 
 // api endpoints
 app.use("/api/user", userRouter)
