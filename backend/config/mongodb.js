@@ -9,7 +9,10 @@ const connectDB = async () => {
     await mongoose.connect(`${process.env.MONGODB_URI}`,{
         dbName : 'harshitproject',
         ssl: true, // Explicitly enable SSL
-        tlsAllowInvalidCertificates: false // Default, but explicit
+        tlsAllowInvalidCertificates: false, // Default, but explicit
+        serverSelectionTimeoutMS: 30000, // Keep trying to send operations for 30 seconds
+        socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+        connectTimeoutMS: 30000 // Give up initial connection after 30 seconds
        })
 
 }
