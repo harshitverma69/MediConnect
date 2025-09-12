@@ -160,22 +160,65 @@ const AIPredictor = () => {
           <label htmlFor="symptoms" className="sr-only">
             Select symptoms
           </label>
-          <select
-            id="symptoms"
-            multiple
-            value={selectedSymptoms}
-            onChange={handleSymptomChange}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent h-48"
-          >
-            {symptoms.map((symptom, index) => (
-              <option key={index} value={symptom}>
-                {symptom.replace(/_/g, " ")}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              id="symptoms"
+              multiple
+              value={selectedSymptoms}
+              onChange={handleSymptomChange}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent h-48 bg-white text-gray-800 text-base"
+              style={{
+                minHeight: "12rem",
+                fontFamily: "inherit",
+                fontSize: "1rem",
+                letterSpacing: "0.01em",
+              }}
+            >
+              {symptoms.map((symptom, index) => (
+                <option
+                  key={index}
+                  value={symptom}
+                  className="py-2 px-2 hover:bg-teal-100"
+                >
+                  {symptom
+                    .replace(/_/g, " ")
+                    .replace(/\b\w/g, (c) => c.toUpperCase())}
+                </option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+              <svg
+                className="h-5 w-5 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
+          </div>
           <div className="text-xs text-gray-500 mt-1">
             Hold Ctrl (Windows) or Cmd (Mac) to select multiple symptoms.
           </div>
+          {selectedSymptoms.length > 0 && (
+            <div className="flex flex-wrap gap-2 mt-2">
+              {selectedSymptoms.map((sym, idx) => (
+                <span
+                  key={idx}
+                  className="bg-teal-100 text-teal-800 px-3 py-1 rounded-full text-xs font-medium border border-teal-200"
+                >
+                  {sym
+                    .replace(/_/g, " ")
+                    .replace(/\b\w/g, (c) => c.toUpperCase())}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Predict Button */}
