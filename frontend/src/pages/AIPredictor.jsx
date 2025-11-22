@@ -44,6 +44,74 @@ const AIPredictor = () => {
           Select a category above to view details.
         </p>
       );
+    // Helper to normalize API fields that sometimes come back as nested arrays
+    const normalizeField = (field) => {
+      if (!field) return [];
+      // If it's an array whose first element is an array, use that
+      let items = [];
+      if (Array.isArray(field) && Array.isArray(field[0])) {
+        items = field[0];
+      } else if (Array.isArray(field)) {
+        items = field;
+      } else if (typeof field === "string") {
+        // sometimes the API returns a stringified Python list like "['a','b']"
+        const s = field.trim();
+        if (s.startsWith("[") && s.endsWith("]")) {
+          try {
+            items = JSON.parse(s.replace(/'/g, '"'));
+          } catch (e) {
+            items = [field];
+          }
+        } else {
+          items = [field];
+        }
+      } else {
+        return [];
+      }
+
+      // If some items are stringified lists (e.g. "['a','b']"), parse them
+      items = items.flatMap((it) => {
+        if (typeof it === 'string') {
+          const s = it.trim();
+          if (s.startsWith('[') && s.endsWith(']')) {
+            try {
+              return JSON.parse(s.replace(/'/g, '"'));
+            } catch (e) {
+              return [it];
+            }
+          }
+          return [it];
+        }
+        return Array.isArray(it) ? it : [it];
+      });
+
+      // Remove any element that equals the predicted disease (case-insensitive),
+      // remove empty strings, numeric-only tokens (like '150'), and null/undefined.
+      const disease = (predictionResult.disease || "").toString().trim().toLowerCase();
+      items = items.filter((it) => {
+        if (it === null || it === undefined) return false;
+        const s = typeof it === 'string' ? it.toString().trim() : String(it);
+        if (s.length === 0) return false;
+        // drop pure numbers (e.g. '150') or numeric tokens
+        if (/^\d+(?:\.\d+)?$/.test(s)) return false;
+        // drop the disease name if present
+        if (s.toLowerCase() === disease) return false;
+        return true;
+      });
+
+      // Trim whitespace from strings and remove duplicates while preserving order
+      const seen = new Set();
+      const cleaned = [];
+      for (const it of items) {
+        const val = typeof it === 'string' ? it.trim() : String(it);
+        if (!seen.has(val)) {
+          seen.add(val);
+          cleaned.push(val);
+        }
+      }
+      return cleaned;
+    };
+
     switch (activeCategory) {
       case "Diseases":
         return (
@@ -58,14 +126,14 @@ const AIPredictor = () => {
           <div>
             <h3 className="font-bold text-lg mb-2">Precautions</h3>
             <ul className="list-disc ml-5">
-              {predictionResult.precautions &&
-              predictionResult.precautions.length > 0 ? (
-                predictionResult.precautions[0].map((item, idx) => (
-                  <li key={idx}>{item}</li>
-                ))
-              ) : (
-                <li>No data</li>
-              )}
+              {(() => {
+                const items = normalizeField(predictionResult.precautions);
+                return items && items.length > 0 ? (
+                  items.map((item, idx) => <li key={idx}>{item}</li>)
+                ) : (
+                  <li>No data</li>
+                );
+              })()}
             </ul>
           </div>
         );
@@ -74,14 +142,14 @@ const AIPredictor = () => {
           <div>
             <h3 className="font-bold text-lg mb-2">Workout</h3>
             <ul className="list-disc ml-5">
-              {predictionResult.workout &&
-              predictionResult.workout.length > 0 ? (
-                predictionResult.workout[0].map((item, idx) => (
-                  <li key={idx}>{item}</li>
-                ))
-              ) : (
-                <li>No data</li>
-              )}
+              {(() => {
+                const items = normalizeField(predictionResult.workout);
+                return items && items.length > 0 ? (
+                  items.map((item, idx) => <li key={idx}>{item}</li>)
+                ) : (
+                  <li>No data</li>
+                );
+              })()}
             </ul>
           </div>
         );
@@ -90,13 +158,14 @@ const AIPredictor = () => {
           <div>
             <h3 className="font-bold text-lg mb-2">Diet</h3>
             <ul className="list-disc ml-5">
-              {predictionResult.diet && predictionResult.diet.length > 0 ? (
-                predictionResult.diet[0].map((item, idx) => (
-                  <li key={idx}>{item}</li>
-                ))
-              ) : (
-                <li>No data</li>
-              )}
+              {(() => {
+                const items = normalizeField(predictionResult.diet);
+                return items && items.length > 0 ? (
+                  items.map((item, idx) => <li key={idx}>{item}</li>)
+                ) : (
+                  <li>No data</li>
+                );
+              })()}
             </ul>
           </div>
         );
@@ -105,14 +174,14 @@ const AIPredictor = () => {
           <div>
             <h3 className="font-bold text-lg mb-2">Medication</h3>
             <ul className="list-disc ml-5">
-              {predictionResult.medications &&
-              predictionResult.medications.length > 0 ? (
-                predictionResult.medications[0].map((item, idx) => (
-                  <li key={idx}>{item}</li>
-                ))
-              ) : (
-                <li>No data</li>
-              )}
+              {(() => {
+                const items = normalizeField(predictionResult.medications);
+                return items && items.length > 0 ? (
+                  items.map((item, idx) => <li key={idx}>{item}</li>)
+                ) : (
+                  <li>No data</li>
+                );
+              })()}
             </ul>
           </div>
         );
