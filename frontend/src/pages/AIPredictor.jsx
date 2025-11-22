@@ -6,17 +6,19 @@ const AIPredictor = () => {
   const [symptoms, setSymptoms] = useState([]); // fetched from backend
   const [predictionResult, setPredictionResult] = useState(null);
   const [activeCategory, setActiveCategory] = useState("");
+  // Predictor base URL configurable via Vite env var VITE_PREDICTOR_URL
+  const PREDICTOR_URL = import.meta.env.VITE_PREDICTOR_URL || "http://localhost:5001";
 
   // Fetch symptoms from backend on mount
   useEffect(() => {
-    fetch("http://localhost:5001/symptoms")
+    fetch(`${PREDICTOR_URL}/symptoms`)
       .then((res) => res.json())
       .then((data) => setSymptoms(data.symptoms || []));
   }, []);
 
   const handlePredict = async () => {
     try {
-      const response = await fetch("http://localhost:5001/predict", {
+      const response = await fetch(`${PREDICTOR_URL}/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ symptoms: selectedSymptoms }),
