@@ -1,5 +1,4 @@
 import React, { useContext, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { AppContext } from '../context/AppContext'
 import axios from 'axios'
 import { toast } from 'react-toastify'
@@ -8,7 +7,6 @@ import { assets } from '../assets/assets'
 const MyAppointments = () => {
 
     const { backendUrl, token } = useContext(AppContext)
-    const navigate = useNavigate()
 
     const [appointments, setAppointments] = useState([])
     const [payment, setPayment] = useState('')
@@ -46,29 +44,42 @@ const MyAppointments = () => {
     }
 
     const initPay = (order) => {
+        const key = import.meta.env.VITE_RAZORPAY_KEY_ID
+        if (!key) {
+            toast.error('Razorpay is not configured. Set VITE_RAZORPAY_KEY_ID in frontend .env.')
+            return
+        }
         const options = {
-            key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+            key,
             amount: order.amount,
             currency: order.currency,
-            name: 'Appointment Payment',
-            description: "Appointment Payment",
+            name: 'MediConnect',
+            description: 'Appointment payment',
             order_id: order.id,
-            receipt: order.receipt,
             handler: async (response) => {
                 try {
-                    const { data } = await axios.post(backendUrl + "/api/user/verifyRazorpay", response, { headers: { token } });
+                    const { data } = await axios.post(backendUrl + '/api/user/verifyRazorpay', response, { headers: { token } })
                     if (data.success) {
-                        navigate('/my-appointments')
+                        toast.success(data.message)
                         getUserAppointments()
+                    } else {
+                        toast.error(data.message)
                     }
                 } catch (error) {
                     console.log(error)
-                    toast.error(error.message)
+                    toast.error(error.response?.data?.message || error.message)
                 }
+            },
+            modal: {
+                ondismiss: () => setPayment('')
             }
-        };
-        const rzp = new window.Razorpay(options);
-        rzp.open();
+        }
+        const rzp = new window.Razorpay(options)
+        rzp.on('payment.failed', (response) => {
+            const msg = response.error?.description || 'Payment failed'
+            toast.error(msg)
+        })
+        rzp.open()
     };
 
     const appointmentRazorpay = async (appointmentId) => {
@@ -145,14 +156,14 @@ const MyAppointments = () => {
                                     Pay online
                                 </button>
                             )}
-                            {!item.cancelled && !item.payment && !item.isCompleted && payment === item._id && (
-                                <button type='button' onClick={() => appointmentStripe(item._id)} className={`${btnBase} flex items-center justify-center bg-white ring-slate-200 hover:bg-surface`}>
-                                    <img className='h-6 w-auto' src={assets.stripe_logo} alt='Stripe' />
-                                </button>
-                            )}
                             {!item.cancelled && !item.payment && !item.isCompleted && payment === item._id && import.meta.env.VITE_RAZORPAY_KEY_ID && (
                                 <button type='button' onClick={() => appointmentRazorpay(item._id)} className={`${btnBase} flex items-center justify-center bg-white ring-slate-200 hover:bg-surface`}>
-                                    <img className='h-6 w-auto' src={assets.razorpay_logo} alt='Razorpay' />
+                                    <img className='h-6 w-auto' src={assets.razorpay_logo} alt='Pay with Razorpay' />
+                                </button>
+                            )}
+                            {!item.cancelled && !item.payment && !item.isCompleted && payment === item._id && (
+                                <button type='button' onClick={() => appointmentStripe(item._id)} className={`${btnBase} flex items-center justify-center bg-white ring-slate-200 hover:bg-surface`}>
+                                    <img className='h-6 w-auto' src={assets.stripe_logo} alt='Pay with Stripe' />
                                 </button>
                             )}
                             {!item.cancelled && item.payment && !item.isCompleted && (
