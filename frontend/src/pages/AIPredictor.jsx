@@ -6,15 +6,24 @@ import { AppContext } from "../context/AppContext";
 const formatSymptomLabel = (symptom) =>
   symptom.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
+function htmlInsteadOfApiHint(requestUrl) {
+  const renderHint =
+    /\.onrender\.com/i.test(requestUrl) || /\.railway\.app/i.test(requestUrl)
+      ? " On Render, the patient site is often a Static Site (HTML for every path). Put Express on a separate Web Service and use that service URL as VITE_BACKEND_URL—not the static site URL."
+      : "";
+  return (
+    `This URL returned HTML, not JSON from your API (${requestUrl}).` +
+    renderHint +
+    ` Quick check: open YOUR-BACKEND + "/api/doctor/list" in the browser — you should see JSON with "success" and "doctors". If you see a web page, that host is not Express.` +
+    ` Fix: set VITE_BACKEND_URL to your Express base URL only, rebuild the frontend, hard-refresh.`
+  );
+}
+
 /** Express returns JSON; HTML means VITE_BACKEND_URL points at the wrong host (e.g. frontend SPA). */
 async function readApiJson(res, requestUrl) {
   const ct = (res.headers.get("content-type") || "").toLowerCase();
   if (ct.includes("text/html")) {
-    throw new Error(
-      `Response was HTML (Content-Type: text/html), not JSON — usually the frontend host or a 404 page, not your API. ` +
-        `Set VITE_BACKEND_URL at build time to your Express server (e.g. https://YOUR-API.onrender.com), redeploy the frontend, then hard-refresh. ` +
-        `Tried: ${requestUrl}`
-    );
+    throw new Error(htmlInsteadOfApiHint(requestUrl));
   }
   const text = await res.text();
   const trimmed = text.trim();
@@ -28,11 +37,7 @@ async function readApiJson(res, requestUrl) {
     /^<html/i.test(trimmed) ||
     /<!doctype html/i.test(trimmed);
   if (looksHtml) {
-    throw new Error(
-      `That URL returned a web page (HTML), not your API. ` +
-        `Rebuild the frontend with VITE_BACKEND_URL set to your Express server only — e.g. https://YOUR-BACKEND.onrender.com — ` +
-        `not the Vercel/Netlify frontend URL. Request: ${requestUrl}`
-    );
+    throw new Error(htmlInsteadOfApiHint(requestUrl));
   }
   try {
     return JSON.parse(text);
