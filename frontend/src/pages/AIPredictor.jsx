@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useContext } from "react";
 import { toast } from "react-toastify";
 import { assets } from "../assets/assets";
-import { AppContext } from "../context/AppContext";
+import { AppContext, MEDICONNECT_BACKEND_URL_KEY } from "../context/AppContext";
 
 const formatSymptomLabel = (symptom) =>
   symptom.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -44,16 +44,22 @@ async function readApiJson(res, requestUrl) {
   } catch {
     const snippet = trimmed.slice(0, 80);
     const express404 = /^cannot get\//i.test(trimmed);
+    const plainNotFound = /^not found$/i.test(trimmed);
+    if (plainNotFound) {
+      throw new Error(
+        `Host returned plain text "Not Found" (${requestUrl}). On Render that often means no Web Service at this URL, or you are hitting the wrong hostname. Set ${MEDICONNECT_BACKEND_URL_KEY} in localStorage to your Express URL (see footer on this page) or fix VITE_BACKEND_URL and redeploy.`
+      );
+    }
     throw new Error(
       express404
         ? `No route on this host (${requestUrl}). Often VITE_BACKEND_URL is wrong, or the backend was deployed without /api/ai. Snippet: ${snippet}`
-        : `Invalid JSON from API (${requestUrl}). Start: ${snippet}… — check VITE_BACKEND_URL and backend deploy.`
+        : `Backend returned non-JSON (${requestUrl}). Start: ${snippet}… Set VITE_BACKEND_URL to your Express API at build time, or use localStorage override below.`
     );
   }
 }
 
 const AIPredictor = () => {
-  const { backendUrl, prodBackendEnvMissing } = useContext(AppContext);
+  const { backendUrl, backendUrlSource, prodBackendEnvMissing } = useContext(AppContext);
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
   const [symptoms, setSymptoms] = useState([]);
   const [predictionResult, setPredictionResult] = useState(null);
@@ -484,7 +490,31 @@ const AIPredictor = () => {
           >
             Run analysis
           </button>
-          <p className="mt-2 text-xs text-muted">API: {backendUrl}/api/ai</p>
+          <div className="mt-2 space-y-1 text-xs text-muted">
+            <p>
+              API base: <span className="font-mono text-ink">{backendUrl}</span>
+              <span className="text-muted"> ({backendUrlSource})</span>
+            </p>
+            <p className="leading-snug">
+              If symptoms fail with non-JSON / HTML, this base must be your <strong>Express</strong> host. Fix the build{" "}
+              <code className="rounded bg-surface px-1 font-mono">VITE_BACKEND_URL</code>, or in the browser console run:{" "}
+              <code className="block break-all rounded bg-surface px-1 py-0.5 font-mono text-[10px] text-ink sm:text-xs">
+                {`localStorage.setItem('${MEDICONNECT_BACKEND_URL_KEY}','https://YOUR-EXPRESS.onrender.com');location.reload()`}
+              </code>
+            </p>
+            <p>
+              <a
+                href={`${backendUrl}/api/config`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-primary underline decoration-primary/30 underline-offset-2 hover:text-primary-dark"
+              >
+                Open /api/config
+              </a>{" "}
+              — should show <code className="font-mono text-ink">aiPredictorConfigured: true</code> when{" "}
+              <code className="font-mono text-ink">AI_SERVICE_URL</code> is set on Express (Python URL).
+            </p>
+          </div>
         </div>
 
         <div className="rounded-2xl bg-card p-6 shadow-card ring-1 ring-slate-200/80 sm:p-8">

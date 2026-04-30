@@ -5,6 +5,8 @@ import axios from 'axios'
 export const AppContext = createContext()
 
 const DEFAULT_BACKEND = 'http://localhost:4000'
+/** Optional: set in DevTools to fix wrong production API without redeploying: localStorage.setItem(MEDICONNECT_BACKEND_URL_KEY, 'https://your-express.onrender.com'); location.reload() */
+export const MEDICONNECT_BACKEND_URL_KEY = 'MEDICONNECT_BACKEND_URL'
 
 /** Base URL for Express only (no trailing slash, no trailing /api — routes already start with /api/). */
 function normalizeBackendBase(raw) {
@@ -14,14 +16,30 @@ function normalizeBackendBase(raw) {
     return s || DEFAULT_BACKEND
 }
 
+function readBackendOverrideFromStorage() {
+    try {
+        if (typeof localStorage === 'undefined') return null
+        const v = localStorage.getItem(MEDICONNECT_BACKEND_URL_KEY)
+        if (!v || !String(v).trim()) return null
+        const n = normalizeBackendBase(v)
+        if (!/^https?:\/\//i.test(n)) return null
+        return n
+    } catch {
+        return null
+    }
+}
+
 const AppContextProvider = (props) => {
 
     const currencySymbol = '₹'
     const viteBackendRaw = import.meta.env.VITE_BACKEND_URL
-    const backendUrl = normalizeBackendBase(viteBackendRaw)
+    const storedOverride = readBackendOverrideFromStorage()
+    const backendUrl = storedOverride ?? normalizeBackendBase(viteBackendRaw)
+    const backendUrlSource = storedOverride ? 'localStorage' : viteBackendRaw ? 'VITE_BACKEND_URL' : 'default'
     /** Production build still using default localhost → API calls fail in the browser. */
     const prodBackendEnvMissing =
         import.meta.env.PROD &&
+        !storedOverride &&
         (!viteBackendRaw ||
             /^https?:\/\/(localhost|127\.0\.0\.1)(\b|:)/i.test(backendUrl))
 
@@ -82,6 +100,7 @@ const AppContextProvider = (props) => {
         doctors, getDoctosData,
         currencySymbol,
         backendUrl,
+        backendUrlSource,
         prodBackendEnvMissing,
         token, setToken,
         userData, setUserData, loadUserProfileData
