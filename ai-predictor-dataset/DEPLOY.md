@@ -33,7 +33,7 @@ The backend calls `.../symptoms` and `.../health` by swapping the path.
 4. **Runtime**: Python 3.
 5. **Build command**: `pip install -r requirements.txt`
 6. **Start command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-7. **Health check path**: `/health`
+7. **Health check path**: `/health` (recommended). The app also answers **`GET /`** and **`HEAD /`** with `200` so default probes to `/` do not return 404 — that pattern used to show as `HEAD HTTP/1.1" 404 Not Found` in logs and could restart the service.
 8. Add env **`CORS_ORIGINS`** (optional): comma-separated origins, or leave unset for `*` (fine when only your backend calls this service).
 
 Alternatively use **`render.yaml`** from this folder as a Blueprint.

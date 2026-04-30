@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -105,6 +106,23 @@ app.add_middleware(
 
 class PredictRequest(BaseModel):
     symptoms: list[str] = Field(default_factory=list)
+
+
+@app.get("/")
+def root():
+    """Load balancers (e.g. Render) often hit ``GET /`` — avoid 404 on site root."""
+    return {
+        "service": "mediconnect-ai-predictor",
+        "health": "/health",
+        "symptoms": "/symptoms",
+        "predict": "POST /predict",
+    }
+
+
+@app.head("/")
+def root_head():
+    """Some proxies use ``HEAD /`` for health; 404 here caused 'Not Found' in access logs."""
+    return Response(status_code=200)
 
 
 @app.get("/health")
