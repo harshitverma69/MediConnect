@@ -8,13 +8,22 @@ The production app is **`main.py`** (FastAPI). It loads `svc.pkl` and CSVs under
 - Symptoms: `https://<your-service>.onrender.com/symptoms`
 - Predict: `https://<your-service>.onrender.com/predict`
 
-Point the Node backend at the **full predict URL**:
+Point the **Node backend** (Render/Vercel host for Express) at your Python service. Either form works; the API normalizes to `.../predict`:
 
 ```bash
+AI_SERVICE_URL=https://<your-service>.onrender.com
+# or
 AI_SERVICE_URL=https://<your-service>.onrender.com/predict
 ```
 
-The backend derives the symptoms URL by replacing `/predict` with `/symptoms`.
+The backend calls `.../symptoms` and `.../health` by swapping the path.
+
+### If the app shows “Not Found” / symptoms never load
+
+1. **Frontend** — Rebuild the patient app with **`VITE_BACKEND_URL`** set to your **deployed Express API** (not `http://localhost:4000`). If this is wrong, the browser calls localhost and symptoms fail.
+2. **Backend** — On the same host as Express, set **`AI_SERVICE_URL`** to your **Python Render URL** (see above). Without it, `/api/ai/symptoms` returns 503.
+3. **Smoke test** — Open `https://<your-express-api>/api/ai/health`. You want `aiServiceConfigured: true` and `upstreamReachable: true`. If `upstreamReachable` is false, the Python service URL is wrong or the AI service is sleeping/failed (check Render logs; confirm `svc.pkl` and `Dataset/` are in the deployed repo).
+4. **Python service** — In a browser, open `https://<your-ai>.onrender.com/health` → should return `{"status":"ok"}`. Then `https://<your-ai>.onrender.com/symptoms` → JSON with a `symptoms` array.
 
 ## Render
 

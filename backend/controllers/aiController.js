@@ -1,23 +1,60 @@
 /**
  * Proxy to the Python AI predictor service (FastAPI).
- * Env: AI_SERVICE_URL = full URL to POST /predict, e.g. https://xxx.onrender.com/predict
+ * Env: AI_SERVICE_URL = your Render URL, with or without /predict, e.g.
+ *   https://your-service.onrender.com
+ *   https://your-service.onrender.com/predict
  */
 
 const DEFAULT_TIMEOUT_MS = 25_000;
 
+/** Normalize so POST always targets .../predict (avoids 404 "Not Found" from hitting service root). */
+function normalizePredictUrl(raw) {
+  if (!raw || typeof raw !== "string") return "";
+  let u = raw.trim().replace(/\/+$/, "");
+  if (!u) return "";
+  if (!/\/predict$/i.test(u)) {
+    u = `${u}/predict`;
+  }
+  return u;
+}
+
 function getPredictUrl() {
-  const u = process.env.AI_SERVICE_URL?.trim();
-  return u || "";
+  return normalizePredictUrl(process.env.AI_SERVICE_URL || "");
 }
 
 function getSymptomsUrl() {
   const predictUrl = getPredictUrl();
   if (!predictUrl) return "";
-  const base = predictUrl.replace(/\/+$/, "");
-  if (base.toLowerCase().endsWith("/predict")) {
-    return `${base.slice(0, -"/predict".length)}/symptoms`;
+  return predictUrl.replace(/\/predict$/i, "/symptoms");
+}
+
+function getHealthUrl() {
+  const predictUrl = getPredictUrl();
+  if (!predictUrl) return "";
+  return predictUrl.replace(/\/predict$/i, "/health");
+}
+
+function upstreamMessage(status, data, fallback) {
+  const d = data?.detail;
+  if (typeof d === "string") {
+    if (status === 404 && (d === "Not Found" || d.toLowerCase().includes("not found"))) {
+      return (
+        "AI service returned 404. Set AI_SERVICE_URL on this API to your Python service root " +
+        "(e.g. https://your-name.onrender.com) or full .../predict. Open /api/ai/health to verify."
+      );
+    }
+    return d;
   }
-  return `${base}/symptoms`;
+  if (Array.isArray(d) && d[0]?.msg) return d.map((x) => x.msg).join("; ");
+  return data?.error || data?.message || fallback;
+}
+
+function safeHost(url) {
+  try {
+    return new URL(url).host;
+  } catch {
+    return "(invalid URL)";
+  }
 }
 
 async function fetchWithTimeout(url, options = {}) {
@@ -57,10 +94,11 @@ const proxySymptoms = async (req, res) => {
       });
     }
     if (!upstream.ok) {
-      console.error("[ai-proxy] Symptoms upstream error:", upstream.status, data);
+      const msg = upstreamMessage(upstream.status, data, `AI service error (${upstream.status})`);
+      console.error("[ai-proxy] Symptoms upstream error:", upstream.status, msg);
       return res.status(upstream.status).json({
         success: false,
-        message: data?.detail || data?.error || `AI service error (${upstream.status})`,
+        message: msg,
       });
     }
     console.log("[ai-proxy] Symptoms OK, count:", data?.symptoms?.length ?? 0);
@@ -110,13 +148,11 @@ const proxyPredict = async (req, res) => {
       });
     }
     if (!upstream.ok) {
-      const detail = data?.detail;
-      const msg =
-        typeof detail === "string"
-          ? detail
-          : Array.isArray(detail)
-            ? detail.map((d) => d.msg).join("; ")
-            : data?.error || `AI service error (${upstream.status})`;
+      const msg = upstreamMessage(
+        upstream.status,
+        data,
+        `AI service error (${upstream.status})`
+      );
       console.error("[ai-proxy] Predict upstream error:", upstream.status, msg);
       return res.status(upstream.status).json({ success: false, message: msg });
     }
@@ -134,4 +170,30 @@ const proxyPredict = async (req, res) => {
   }
 };
 
-export { proxySymptoms, proxyPredict };
+/** GET — quick checks for deploy debugging (no secrets). */
+const aiHealth = async (req, res) => {
+  const predictUrl = getPredictUrl();
+  const configured = Boolean(predictUrl);
+  const host = configured ? safeHost(predictUrl) : null;
+  let upstream = { ok: false, status: null, error: null };
+  const healthUrl = getHealthUrl();
+  if (healthUrl) {
+    try {
+      const r = await fetchWithTimeout(healthUrl, { method: "GET" });
+      upstream.status = r.status;
+      upstream.ok = r.ok;
+    } catch (e) {
+      upstream.error = e.name === "AbortError" ? "timeout" : e.message;
+    }
+  }
+  return res.json({
+    ok: configured && upstream.ok,
+    aiServiceConfigured: configured,
+    aiServiceHost: host,
+    upstreamHealthStatus: upstream.status,
+    upstreamReachable: upstream.ok,
+    upstreamError: upstream.error || undefined,
+  });
+};
+
+export { proxySymptoms, proxyPredict, aiHealth };

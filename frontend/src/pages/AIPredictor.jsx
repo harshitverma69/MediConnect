@@ -18,15 +18,32 @@ const AIPredictor = () => {
 
   useEffect(() => {
     if (!backendUrl) return;
-    fetch(`${backendUrl}/api/ai/symptoms`)
-      .then(async (res) => {
-        const data = await res.json();
+    const load = async () => {
+      try {
+        const res = await fetch(`${backendUrl}/api/ai/symptoms`);
+        let data;
+        try {
+          data = await res.json();
+        } catch {
+          throw new Error("Backend returned non-JSON. Is VITE_BACKEND_URL your deployed API URL?");
+        }
         if (!res.ok) {
-          throw new Error(data.message || "Could not load symptoms");
+          throw new Error(
+            data.message ||
+              data.detail ||
+              "Could not load symptoms. Deployed API must set AI_SERVICE_URL to your Python service."
+          );
         }
         setSymptoms(data.symptoms || []);
-      })
-      .catch((e) => toast.error(e.message || "Could not load symptoms. Check backend AI_SERVICE_URL."));
+      } catch (e) {
+        const hint =
+          e.message === "Failed to fetch"
+            ? " Cannot reach backend — set VITE_BACKEND_URL at build time to your live API (not localhost)."
+            : "";
+        toast.error((e.message || "Could not load symptoms.") + hint);
+      }
+    };
+    load();
   }, [backendUrl]);
 
   useEffect(() => {
