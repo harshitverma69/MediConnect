@@ -6,8 +6,16 @@ import { AppContext } from "../context/AppContext";
 const formatSymptomLabel = (symptom) =>
   symptom.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-/** Express returns JSON; HTML means VITE_BACKEND_URL points at the wrong host (e.g. frontend). */
+/** Express returns JSON; HTML means VITE_BACKEND_URL points at the wrong host (e.g. frontend SPA). */
 async function readApiJson(res, requestUrl) {
+  const ct = (res.headers.get("content-type") || "").toLowerCase();
+  if (ct.includes("text/html")) {
+    throw new Error(
+      `Response was HTML (Content-Type: text/html), not JSON — usually the frontend host or a 404 page, not your API. ` +
+        `Set VITE_BACKEND_URL at build time to your Express server (e.g. https://YOUR-API.onrender.com), redeploy the frontend, then hard-refresh. ` +
+        `Tried: ${requestUrl}`
+    );
+  }
   const text = await res.text();
   const trimmed = text.trim();
   if (!trimmed) {
@@ -29,14 +37,18 @@ async function readApiJson(res, requestUrl) {
   try {
     return JSON.parse(text);
   } catch {
+    const snippet = trimmed.slice(0, 80);
+    const express404 = /^cannot get\//i.test(trimmed);
     throw new Error(
-      `Invalid JSON from API (${requestUrl}). Start: ${trimmed.slice(0, 60)}… — check backend deploy and env.`
+      express404
+        ? `No route on this host (${requestUrl}). Often VITE_BACKEND_URL is wrong, or the backend was deployed without /api/ai. Snippet: ${snippet}`
+        : `Invalid JSON from API (${requestUrl}). Start: ${snippet}… — check VITE_BACKEND_URL and backend deploy.`
     );
   }
 }
 
 const AIPredictor = () => {
-  const { backendUrl } = useContext(AppContext);
+  const { backendUrl, prodBackendEnvMissing } = useContext(AppContext);
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
   const [symptoms, setSymptoms] = useState([]);
   const [predictionResult, setPredictionResult] = useState(null);
@@ -48,8 +60,21 @@ const AIPredictor = () => {
   useEffect(() => {
     if (!backendUrl) return;
     const load = async () => {
+      const healthUrl = `${backendUrl}/api/ai/health`;
       const symptomsUrl = `${backendUrl}/api/ai/symptoms`;
       try {
+        const healthRes = await fetch(healthUrl);
+        const healthData = await readApiJson(healthRes, healthUrl);
+        if (!healthData.aiServiceConfigured) {
+          toast.warn(
+            "Backend has no AI_SERVICE_URL. Add it on your Node host (Python service base URL), restart the API, then reload."
+          );
+        } else if (!healthData.upstreamReachable) {
+          toast.warn(
+            `Python AI service not reachable from backend (${healthData.aiServiceHost || "check URL"}). Verify AI is up and AI_SERVICE_URL matches it.`
+          );
+        }
+
         const res = await fetch(symptomsUrl);
         const data = await readApiJson(res, symptomsUrl);
         if (!res.ok) {
@@ -317,6 +342,21 @@ const AIPredictor = () => {
 
   return (
     <div className="pb-20">
+      {prodBackendEnvMissing && (
+        <div
+          role="alert"
+          className="mb-6 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 ring-1 ring-amber-200"
+        >
+          <p className="font-bold">API URL not set for this production build</p>
+          <p className="mt-1 text-amber-900/90">
+            In Vercel / Netlify / Cloudflare Pages, add environment variable{" "}
+            <code className="rounded bg-amber-100/80 px-1 font-mono text-xs">VITE_BACKEND_URL</code>{" "}
+            = your Express server (e.g. <code className="font-mono text-xs">https://your-api.onrender.com</code>
+            ), then <strong>redeploy</strong>. Vite bakes this in at build time — restarting the app is not enough if
+            the variable was missing when the site was built.
+          </p>
+        </div>
+      )}
       <div className="overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary to-primary-dark p-8 text-white shadow-card sm:p-10">
         <div className="flex flex-wrap items-center gap-3">
           <img src={assets.logo} alt="" className="h-10 w-auto rounded-lg bg-white/95 px-2 py-1 shadow-sm" />

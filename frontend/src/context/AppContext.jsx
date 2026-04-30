@@ -4,11 +4,26 @@ import axios from 'axios'
 
 export const AppContext = createContext()
 
+const DEFAULT_BACKEND = 'http://localhost:4000'
+
+/** Base URL for Express only (no trailing slash, no trailing /api — routes already start with /api/). */
+function normalizeBackendBase(raw) {
+    if (raw == null || String(raw).trim() === '') return DEFAULT_BACKEND
+    let s = String(raw).trim().replace(/\/+$/, '')
+    s = s.replace(/\/api$/i, '')
+    return s || DEFAULT_BACKEND
+}
+
 const AppContextProvider = (props) => {
 
     const currencySymbol = '₹'
-    const _raw = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000'
-    const backendUrl = typeof _raw === 'string' ? _raw.trim().replace(/\/+$/, '') : _raw
+    const viteBackendRaw = import.meta.env.VITE_BACKEND_URL
+    const backendUrl = normalizeBackendBase(viteBackendRaw)
+    /** Production build still using default localhost → API calls fail in the browser. */
+    const prodBackendEnvMissing =
+        import.meta.env.PROD &&
+        (!viteBackendRaw ||
+            /^https?:\/\/(localhost|127\.0\.0\.1)(\b|:)/i.test(backendUrl))
 
     const [doctors, setDoctors] = useState([])
     const [token, setToken] = useState(localStorage.getItem('token') ? localStorage.getItem('token') : '')
@@ -67,6 +82,7 @@ const AppContextProvider = (props) => {
         doctors, getDoctosData,
         currencySymbol,
         backendUrl,
+        prodBackendEnvMissing,
         token, setToken,
         userData, setUserData, loadUserProfileData
     }
