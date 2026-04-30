@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import validator from "validator";
 import { v2 as cloudinary } from "cloudinary";
 import userModel from "../models/userModel.js";
+import httpErrorMessage from "../utils/httpErrorMessage.js";
 
 // API for admin login
 const loginAdmin = async (req, res) => {
@@ -21,7 +22,7 @@ const loginAdmin = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.json({ success: false, message: error.message })
+        res.json({ success: false, message: httpErrorMessage(error) })
     }
 
 }
@@ -36,7 +37,7 @@ const appointmentsAdmin = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.json({ success: false, message: error.message })
+        res.json({ success: false, message: httpErrorMessage(error) })
     }
 
 }
@@ -52,7 +53,7 @@ const appointmentCancel = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.json({ success: false, message: error.message })
+        res.json({ success: false, message: httpErrorMessage(error) })
     }
 
 }
@@ -66,8 +67,12 @@ const addDoctor = async (req, res) => {
         const imageFile = req.file
 
         // checking for all data to add doctor
-        if (!name || !email || !password || !speciality || !degree || !experience || !about || !fees || !address) {
+        if (!name || !email || !password || !speciality || !degree || !experience || !String(about || '').trim() || fees === undefined || fees === '' || !address) {
             return res.json({ success: false, message: "Missing Details" })
+        }
+
+        if (!imageFile) {
+            return res.json({ success: false, message: "Doctor image is required" })
         }
 
         // validating email format
@@ -88,6 +93,18 @@ const addDoctor = async (req, res) => {
         const imageUpload = await cloudinary.uploader.upload(imageFile.path, { resource_type: "image" })
         const imageUrl = imageUpload.secure_url
 
+        const feesNum = Number(fees)
+        if (!Number.isFinite(feesNum) || feesNum < 0) {
+            return res.json({ success: false, message: "Please enter a valid consultation fee" })
+        }
+
+        let addressObj
+        try {
+            addressObj = JSON.parse(address)
+        } catch {
+            return res.json({ success: false, message: "Invalid address format" })
+        }
+
         const doctorData = {
             name,
             email,
@@ -96,9 +113,9 @@ const addDoctor = async (req, res) => {
             speciality,
             degree,
             experience,
-            about,
-            fees,
-            address: JSON.parse(address),
+            about: String(about).trim(),
+            fees: feesNum,
+            address: addressObj,
             date: Date.now()
         }
 
@@ -108,7 +125,7 @@ const addDoctor = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.json({ success: false, message: error.message })
+        res.json({ success: false, message: httpErrorMessage(error, "Could not add doctor. Check image upload, Cloudinary/TLS, and that the email is unique.") })
     }
 }
 
@@ -121,7 +138,7 @@ const allDoctors = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.json({ success: false, message: error.message })
+        res.json({ success: false, message: httpErrorMessage(error) })
     }
 }
 
@@ -144,7 +161,7 @@ const adminDashboard = async (req, res) => {
 
     } catch (error) {
         console.log(error)
-        res.json({ success: false, message: error.message })
+        res.json({ success: false, message: httpErrorMessage(error) })
     }
 }
 

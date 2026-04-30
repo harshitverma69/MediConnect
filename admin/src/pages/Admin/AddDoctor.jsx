@@ -49,7 +49,7 @@ const AddDoctor = () => {
 
             const { data } = await axios.post(backendUrl + '/api/admin/add-doctor', formData, { headers: { aToken } })
             if (data.success) {
-                toast.success(data.message)
+                toast.success(data.message || 'Doctor added')
                 setDocImg(false)
                 setName('')
                 setPassword('')
@@ -60,11 +60,11 @@ const AddDoctor = () => {
                 setAbout('')
                 setFees('')
             } else {
-                toast.error(data.message)
+                toast.error(data.message || 'Could not add doctor')
             }
 
         } catch (error) {
-            toast.error(error.message)
+            toast.error(error.response?.data?.message || error.message || 'Request failed')
             console.log(error)
         }
 
@@ -164,7 +164,7 @@ const AddDoctor = () => {
 
                 <label className='mt-8 block text-sm font-medium text-ink'>
                     About
-                    <textarea onChange={e => setAbout(e.target.value)} value={about} className={`${inputClass} mt-1.5 min-h-[140px] resize-y`} rows={5} placeholder='Short bio for the profile page' />
+                    <textarea onChange={e => setAbout(e.target.value)} value={about} className={`${inputClass} mt-1.5 min-h-[140px] resize-y`} rows={5} placeholder='Short bio for the profile page' required />
                 </label>
 
                 <button type='submit' className='mt-8 rounded-xl bg-primary px-10 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark'>

@@ -1,10 +1,42 @@
+import math
 import os
 import sys
 
-from flask import Flask, request, jsonify
+import numpy as np
 import pandas as pd
+from flask import Flask, request, jsonify
 import joblib
 from flask_cors import CORS
+
+
+def _json_safe(obj):
+    """Convert numpy/pandas types and NaN/Inf to JSON-serializable values (strict JSON has no NaN)."""
+    if obj is None:
+        return None
+    if isinstance(obj, np.str_):
+        return str(obj)
+    if isinstance(obj, (str, bool)):
+        return obj
+    if isinstance(obj, dict):
+        return {str(k): _json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_json_safe(x) for x in obj]
+    if isinstance(obj, np.ndarray):
+        return _json_safe(obj.tolist())
+    if isinstance(obj, np.generic):
+        return _json_safe(obj.item())
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, int):
+        return obj
+    try:
+        if pd.isna(obj):
+            return None
+    except (ValueError, TypeError):
+        pass
+    return obj
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATASET_DIR = os.path.join(BASE_DIR, "Dataset")
@@ -78,16 +110,15 @@ def predict():
         med = medications[medications["Disease"] == disease].values.tolist()
         die = diets[diets["Disease"] == disease].values.tolist()
         wrk = workout[workout["disease"] == disease].values.tolist()
-        return jsonify(
-            {
-                "disease": disease,
-                "description": desc,
-                "precautions": pre,
-                "medications": med,
-                "diet": die,
-                "workout": wrk,
-            }
-        )
+        payload = {
+            "disease": disease,
+            "description": desc,
+            "precautions": pre,
+            "medications": med,
+            "diet": die,
+            "workout": wrk,
+        }
+        return jsonify(_json_safe(payload))
     except Exception as e:
         print("Error in /predict:", e)
         return jsonify({"error": str(e)}), 500
@@ -99,4 +130,7 @@ def get_symptoms():
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5001)
+    # Default 5001; override if busy: PREDICTOR_PORT=5002 python3 api.py (match VITE_PREDICTOR_URL in frontend)
+    _port = int(os.environ.get("PREDICTOR_PORT", "5001"))
+    print(f"Predictor API → http://127.0.0.1:{_port}")
+    app.run(host="127.0.0.1", port=_port)

@@ -20,5 +20,8 @@ if [[ ! -f svc.pkl ]]; then
   python3 train_and_export.py
 fi
 
-echo "Starting API on http://127.0.0.1:5001"
+PORT="${PREDICTOR_PORT:-5001}"
+echo "Starting API on http://127.0.0.1:${PORT}"
+echo "If 'Address already in use':  kill \$(lsof -t -i :${PORT})  then run again."
+export PREDICTOR_PORT="${PORT}"
 exec python3 api.py

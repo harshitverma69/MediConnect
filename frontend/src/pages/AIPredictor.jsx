@@ -1,12 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { toast } from "react-toastify";
 import { assets } from "../assets/assets";
+
+const formatSymptomLabel = (symptom) =>
+  symptom.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 const AIPredictor = () => {
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
   const [symptoms, setSymptoms] = useState([]);
   const [predictionResult, setPredictionResult] = useState(null);
   const [activeCategory, setActiveCategory] = useState("");
+  const [symptomPanelOpen, setSymptomPanelOpen] = useState(false);
+  const [symptomSearch, setSymptomSearch] = useState("");
+  const panelRef = useRef(null);
   const PREDICTOR_URL = import.meta.env.VITE_PREDICTOR_URL || "http://localhost:5001";
 
   useEffect(() => {
@@ -15,6 +21,47 @@ const AIPredictor = () => {
       .then((data) => setSymptoms(data.symptoms || []))
       .catch(() => toast.error("Could not load symptoms. Is the predictor API running?"));
   }, [PREDICTOR_URL]);
+
+  useEffect(() => {
+    const onPointerDown = (e) => {
+      if (!panelRef.current) return;
+      if (!panelRef.current.contains(e.target)) setSymptomPanelOpen(false);
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setSymptomPanelOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, []);
+
+  const filteredSymptoms = useMemo(() => {
+    const q = symptomSearch.trim().toLowerCase();
+    if (!q) return symptoms;
+    return symptoms.filter(
+      (s) =>
+        s.toLowerCase().includes(q) || formatSymptomLabel(s).toLowerCase().includes(q)
+    );
+  }, [symptoms, symptomSearch]);
+
+  const toggleSymptom = (symptom) => {
+    setSelectedSymptoms((prev) =>
+      prev.includes(symptom) ? prev.filter((x) => x !== symptom) : [...prev, symptom]
+    );
+  };
+
+  const selectFilteredVisible = () => {
+    setSelectedSymptoms((prev) => {
+      const set = new Set(prev);
+      filteredSymptoms.forEach((s) => set.add(s));
+      return Array.from(set);
+    });
+  };
+
+  const clearSelection = () => setSelectedSymptoms([]);
 
   const handlePredict = async () => {
     try {
@@ -29,6 +76,7 @@ const AIPredictor = () => {
       }
       setPredictionResult(data);
       setActiveCategory("");
+      setSymptomPanelOpen(false);
       toast.success("Analysis ready — explore the sections below.");
     } catch (err) {
       toast.error(err.message || "Prediction failed");
@@ -204,14 +252,6 @@ const AIPredictor = () => {
     }
   };
 
-  const handleSymptomChange = (e) => {
-    const options = Array.from(
-      e.target.selectedOptions,
-      (option) => option.value
-    );
-    setSelectedSymptoms(options);
-  };
-
   const resultTabs = [
     ["Diseases", "Overview"],
     ["Precautions", "Precautions"],
@@ -238,22 +278,90 @@ const AIPredictor = () => {
       <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_1fr]">
         <div className="rounded-2xl bg-card p-6 shadow-card ring-1 ring-slate-200/80 sm:p-8">
           <h2 className="text-lg font-bold text-ink">Your symptoms</h2>
-          <p className="mt-1 text-sm text-muted">Hold Ctrl / Cmd to multi-select in the list.</p>
+          <p className="mt-1 text-sm text-muted">
+            Open the list, search, and tick several symptoms — no keyboard shortcuts needed.
+          </p>
 
-          <label htmlFor="symptoms" className="sr-only">Symptoms</label>
-          <select
-            id="symptoms"
-            multiple
-            value={selectedSymptoms}
-            onChange={handleSymptomChange}
-            className="mt-4 h-52 w-full rounded-xl border border-slate-200 bg-surface px-3 py-2 text-sm text-ink outline-none ring-primary/20 focus:border-primary focus:ring-2"
-          >
-            {symptoms.map((symptom, index) => (
-              <option key={index} value={symptom}>
-                {symptom.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-              </option>
-            ))}
-          </select>
+          <div className="relative mt-4" ref={panelRef}>
+            <button
+              type="button"
+              id="symptom-multiselect-trigger"
+              aria-haspopup="listbox"
+              aria-expanded={symptomPanelOpen}
+              onClick={() => setSymptomPanelOpen((o) => !o)}
+              className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-medium text-ink shadow-sm outline-none ring-primary/20 transition hover:border-slate-300 focus:border-primary focus:ring-2"
+            >
+              <span>
+                {selectedSymptoms.length === 0
+                  ? "Choose symptoms…"
+                  : `${selectedSymptoms.length} selected`}
+              </span>
+              <span
+                className={`text-muted transition ${symptomPanelOpen ? "rotate-180" : ""}`}
+                aria-hidden
+              >
+                ▼
+              </span>
+            </button>
+
+            {symptomPanelOpen && (
+              <div
+                className="absolute z-20 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg ring-1 ring-slate-200/80"
+                role="listbox"
+                aria-multiselectable="true"
+                aria-labelledby="symptom-multiselect-trigger"
+              >
+                <div className="border-b border-slate-100 p-2">
+                  <input
+                    type="search"
+                    value={symptomSearch}
+                    onChange={(e) => setSymptomSearch(e.target.value)}
+                    placeholder="Search symptoms…"
+                    className="w-full rounded-lg border border-slate-200 bg-surface px-3 py-2 text-sm text-ink outline-none ring-primary/15 focus:border-primary focus:ring-2"
+                    autoFocus
+                  />
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={selectFilteredVisible}
+                      className="rounded-lg bg-primary-muted px-2.5 py-1 text-xs font-semibold text-primary-dark ring-1 ring-primary/25 hover:bg-primary/15"
+                    >
+                      Add all in view
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearSelection}
+                      className="rounded-lg px-2.5 py-1 text-xs font-semibold text-muted ring-1 ring-slate-200 hover:bg-slate-50"
+                    >
+                      Clear all
+                    </button>
+                  </div>
+                </div>
+                <ul className="max-h-52 overflow-y-auto py-1">
+                  {filteredSymptoms.length === 0 ? (
+                    <li className="px-4 py-6 text-center text-sm text-muted">No matches</li>
+                  ) : (
+                    filteredSymptoms.map((symptom) => {
+                      const checked = selectedSymptoms.includes(symptom);
+                      return (
+                        <li key={symptom}>
+                          <label className="flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm text-ink transition hover:bg-surface">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleSymptom(symptom)}
+                              className="h-4 w-4 shrink-0 rounded border-slate-300 text-primary focus:ring-primary"
+                            />
+                            <span className="select-none">{formatSymptomLabel(symptom)}</span>
+                          </label>
+                        </li>
+                      );
+                    })
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
 
           {selectedSymptoms.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
@@ -262,7 +370,7 @@ const AIPredictor = () => {
                   key={idx}
                   className="rounded-full bg-primary-muted px-3 py-1 text-xs font-semibold text-primary-dark ring-1 ring-primary/20"
                 >
-                  {sym.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                  {formatSymptomLabel(sym)}
                 </span>
               ))}
             </div>
