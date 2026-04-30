@@ -1,6 +1,16 @@
 import React, { useContext, useEffect, useState } from 'react'
 import { AppContext } from '../context/AppContext'
 import { useNavigate, useParams } from 'react-router-dom'
+import DoctorCard from '../components/DoctorCard'
+
+const filters = [
+  'General physician',
+  'Gynecologist',
+  'Dermatologist',
+  'Pediatricians',
+  'Neurologist',
+  'Gastroenterologist',
+]
 
 const Doctors = () => {
 
@@ -12,43 +22,66 @@ const Doctors = () => {
 
   const { doctors } = useContext(AppContext)
 
-  const applyFilter = () => {
+  useEffect(() => {
     if (speciality) {
       setFilterDoc(doctors.filter(doc => doc.speciality === speciality))
     } else {
       setFilterDoc(doctors)
     }
-  }
-
-  useEffect(() => {
-    applyFilter()
   }, [doctors, speciality])
 
+  const goFilter = (label) => {
+    if (speciality === label) {
+      navigate('/doctors')
+    } else {
+      navigate(`/doctors/${label}`)
+    }
+    setShowFilter(false)
+  }
+
   return (
-    <div>
-      <p className='text-gray-600'>Browse through the doctors specialist.</p>
-      <div className='flex flex-col sm:flex-row items-start gap-5 mt-5'>
-        <button onClick={() => setShowFilter(!showFilter)} className={`py-1 px-3 border rounded text-sm  transition-all sm:hidden ${showFilter ? 'bg-primary text-white' : ''}`}>Filters</button>
-        <div className={`flex-col gap-4 text-sm text-gray-600 ${showFilter ? 'flex' : 'hidden sm:flex'}`}>
-          <p onClick={() => speciality === 'General physician' ? navigate('/doctors') : navigate('/doctors/General physician')} className={`w-[94vw] sm:w-auto pl-3 py-1.5 pr-16 border border-gray-300 rounded transition-all cursor-pointer ${speciality === 'General physician' ? 'bg-[#E2E5FF] text-black ' : ''}`}>General physician</p>
-          <p onClick={() => speciality === 'Gynecologist' ? navigate('/doctors') : navigate('/doctors/Gynecologist')} className={`w-[94vw] sm:w-auto pl-3 py-1.5 pr-16 border border-gray-300 rounded transition-all cursor-pointer ${speciality === 'Gynecologist' ? 'bg-[#E2E5FF] text-black ' : ''}`}>Gynecologist</p>
-          <p onClick={() => speciality === 'Dermatologist' ? navigate('/doctors') : navigate('/doctors/Dermatologist')} className={`w-[94vw] sm:w-auto pl-3 py-1.5 pr-16 border border-gray-300 rounded transition-all cursor-pointer ${speciality === 'Dermatologist' ? 'bg-[#E2E5FF] text-black ' : ''}`}>Dermatologist</p>
-          <p onClick={() => speciality === 'Pediatricians' ? navigate('/doctors') : navigate('/doctors/Pediatricians')} className={`w-[94vw] sm:w-auto pl-3 py-1.5 pr-16 border border-gray-300 rounded transition-all cursor-pointer ${speciality === 'Pediatricians' ? 'bg-[#E2E5FF] text-black ' : ''}`}>Pediatricians</p>
-          <p onClick={() => speciality === 'Neurologist' ? navigate('/doctors') : navigate('/doctors/Neurologist')} className={`w-[94vw] sm:w-auto pl-3 py-1.5 pr-16 border border-gray-300 rounded transition-all cursor-pointer ${speciality === 'Neurologist' ? 'bg-[#E2E5FF] text-black ' : ''}`}>Neurologist</p>
-          <p onClick={() => speciality === 'Gastroenterologist' ? navigate('/doctors') : navigate('/doctors/Gastroenterologist')} className={`w-[94vw] sm:w-auto pl-3 py-1.5 pr-16 border border-gray-300 rounded transition-all cursor-pointer ${speciality === 'Gastroenterologist' ? 'bg-[#E2E5FF] text-black ' : ''}`}>Gastroenterologist</p>
-        </div>
-        <div className='w-full grid grid-cols-auto gap-4 gap-y-6'>
+    <div className='pb-12'>
+      <div className='mb-8'>
+        <h1 className='text-3xl font-bold text-ink'>Our doctors</h1>
+        <p className='mt-2 text-muted'>Browse by speciality and book a slot that works for you.</p>
+      </div>
+
+      <div className='flex flex-col gap-8 lg:flex-row lg:items-start'>
+        <button
+          type='button'
+          onClick={() => setShowFilter(!showFilter)}
+          className={`flex w-full items-center justify-center rounded-xl py-3 text-sm font-semibold ring-1 transition lg:hidden ${showFilter ? 'bg-primary text-white ring-primary' : 'bg-card text-ink ring-slate-200'}`}
+        >
+          {showFilter ? 'Hide filters' : 'Show filters'}
+        </button>
+
+        <aside className={`lg:w-56 lg:shrink-0 ${showFilter ? 'block' : 'hidden lg:block'}`}>
+          <p className='mb-3 text-xs font-bold uppercase tracking-wider text-muted'>Speciality</p>
+          <div className='flex flex-col gap-2'>
+            {filters.map((label) => (
+              <button
+                key={label}
+                type='button'
+                onClick={() => goFilter(label)}
+                className={`rounded-xl px-4 py-3 text-left text-sm font-medium transition ${
+                  speciality === label
+                    ? 'bg-primary text-white shadow-md'
+                    : 'bg-card text-ink shadow-card ring-1 ring-slate-200/80 hover:border-primary hover:text-primary'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        <div className='grid flex-1 grid-cols-auto gap-5 sm:gap-6'>
           {filterDoc.map((item, index) => (
-            <div onClick={() => { navigate(`/appointment/${item._id}`); scrollTo(0, 0) }} className='border border-[#C9D8FF] rounded-xl overflow-hidden cursor-pointer hover:translate-y-[-10px] transition-all duration-500' key={index}>
-              <img className='bg-[#EAEFFF]' src={item.image} alt="" />
-              <div className='p-4'>
-                <div className={`flex items-center gap-2 text-sm text-center ${item.available ? 'text-green-500' : "text-gray-500"}`}>
-                  <p className={`w-2 h-2 rounded-full ${item.available ? 'bg-green-500' : "bg-gray-500"}`}></p><p>{item.available ? 'Available' : "Not Available"}</p>
-                </div>
-                <p className='text-[#262626] text-lg font-medium'>{item.name}</p>
-                <p className='text-[#5C5C5C] text-sm'>{item.speciality}</p>
-              </div>
-            </div>
+            <DoctorCard
+              key={index}
+              doctor={item}
+              onClick={() => { navigate(`/appointment/${item._id}`); scrollTo(0, 0) }}
+            />
           ))}
         </div>
       </div>

@@ -1,15 +1,17 @@
 import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import validator from "validator";
 import userModel from "../models/userModel.js";
 import doctorModel from "../models/doctorModel.js";
 import appointmentModel from "../models/appointmentModel.js";
 import { v2 as cloudinary } from "cloudinary";
-import stripe from "stripe";
-// import razorpay from 'razorpay';
+import Stripe from "stripe";
 
-// Gateway Initialize
-const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
+const getStripe = () => {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return null;
+  return new Stripe(key);
+};
 // const razorpayInstance = new razorpay({
 //     key_id: process.env.RAZORPAY_KEY_ID,
 //     key_secret: process.env.RAZORPAY_KEY_SECRET,
@@ -299,6 +301,15 @@ const listAppointment = async (req, res) => {
 // API to make payment of appointment using Stripe
 const paymentStripe = async (req, res) => {
   try {
+    const stripeInstance = getStripe();
+    if (!stripeInstance) {
+      return res.json({
+        success: false,
+        message:
+          "Online payment is not configured. Set STRIPE_SECRET_KEY and CURRENCY in the backend .env.",
+      });
+    }
+
     const { appointmentId } = req.body;
     const { origin } = req.headers;
 
@@ -311,7 +322,7 @@ const paymentStripe = async (req, res) => {
       });
     }
 
-    const currency = process.env.CURRENCY.toLocaleLowerCase();
+    const currency = (process.env.CURRENCY || "inr").toLowerCase();
 
     const line_items = [
       {

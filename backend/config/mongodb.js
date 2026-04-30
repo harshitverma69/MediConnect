@@ -2,7 +2,10 @@ import mongoose from "mongoose";
 
 const connectDB = async () => {
 
-    console.log("DEBUG: MONGODB_URI being used:", process.env.MONGODB_URI); // Temporary debug log
+    if (!process.env.MONGODB_URI) {
+        throw new Error("MONGODB_URI is not set in backend/.env")
+    }
+
     mongoose.connection.on('connected', () => console.log("Database Connected"))
     await mongoose.connect(`${process.env.MONGODB_URI}`,{
         dbName : 'harshitproject',

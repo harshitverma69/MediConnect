@@ -1,12 +1,12 @@
 import axios from 'axios';
-import React, { useContext, useEffect } from 'react'
+import React, { useContext, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { AppContext } from '../context/AppContext';
 import { toast } from 'react-toastify';
 
 const Verify = () => {
 
-    const [searchParams, setSearchParams] = useSearchParams()
+    const [searchParams] = useSearchParams()
 
     const success = searchParams.get("success")
     const appointmentId = searchParams.get("appointmentId")
@@ -14,12 +14,10 @@ const Verify = () => {
     const { backendUrl, token } = useContext(AppContext)
 
     const navigate = useNavigate()
+    const ran = useRef(false)
 
-    // Function to verify stripe payment
     const verifyStripe = async () => {
-
         try {
-
             const { data } = await axios.post(backendUrl + "/api/user/verifyStripe", { success, appointmentId }, { headers: { token } })
 
             if (data.success) {
@@ -33,19 +31,22 @@ const Verify = () => {
         } catch (error) {
             toast.error(error.message)
             console.log(error)
+            navigate("/my-appointments")
         }
-
     }
 
     useEffect(() => {
-        if (token, appointmentId, success) {
+        if (ran.current) return
+        if (token && appointmentId != null && success != null) {
+            ran.current = true
             verifyStripe()
         }
-    }, [token])
+    }, [token, appointmentId, success])
 
     return (
-        <div className='min-h-[60vh] flex items-center justify-center'>
-            <div className="w-20 h-20 border-4 border-gray-300 border-t-4 border-t-primary rounded-full animate-spin"></div>
+        <div className='flex min-h-[50vh] flex-col items-center justify-center gap-4 py-16'>
+            <div className="h-14 w-14 animate-spin rounded-full border-4 border-slate-200 border-t-primary" />
+            <p className='text-sm font-medium text-muted'>Confirming payment…</p>
         </div>
     )
 }
