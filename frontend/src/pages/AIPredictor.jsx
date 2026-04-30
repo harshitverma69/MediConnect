@@ -6,6 +6,35 @@ import { AppContext } from "../context/AppContext";
 const formatSymptomLabel = (symptom) =>
   symptom.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
+/** Express returns JSON; HTML means VITE_BACKEND_URL points at the wrong host (e.g. frontend). */
+async function readApiJson(res, requestUrl) {
+  const text = await res.text();
+  const trimmed = text.trim();
+  if (!trimmed) {
+    throw new Error(
+      `Empty response from ${requestUrl}. Set VITE_BACKEND_URL to your deployed Node/Express API (same URL you use for the rest of the app).`
+    );
+  }
+  const looksHtml =
+    /^<!/i.test(trimmed) ||
+    /^<html/i.test(trimmed) ||
+    /<!doctype html/i.test(trimmed);
+  if (looksHtml) {
+    throw new Error(
+      `That URL returned a web page (HTML), not your API. ` +
+        `Rebuild the frontend with VITE_BACKEND_URL set to your Express server only — e.g. https://YOUR-BACKEND.onrender.com — ` +
+        `not the Vercel/Netlify frontend URL. Request: ${requestUrl}`
+    );
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(
+      `Invalid JSON from API (${requestUrl}). Start: ${trimmed.slice(0, 60)}… — check backend deploy and env.`
+    );
+  }
+}
+
 const AIPredictor = () => {
   const { backendUrl } = useContext(AppContext);
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
@@ -19,14 +48,10 @@ const AIPredictor = () => {
   useEffect(() => {
     if (!backendUrl) return;
     const load = async () => {
+      const symptomsUrl = `${backendUrl}/api/ai/symptoms`;
       try {
-        const res = await fetch(`${backendUrl}/api/ai/symptoms`);
-        let data;
-        try {
-          data = await res.json();
-        } catch {
-          throw new Error("Backend returned non-JSON. Is VITE_BACKEND_URL your deployed API URL?");
-        }
+        const res = await fetch(symptomsUrl);
+        const data = await readApiJson(res, symptomsUrl);
         if (!res.ok) {
           throw new Error(
             data.message ||
@@ -88,13 +113,14 @@ const AIPredictor = () => {
   const clearSelection = () => setSelectedSymptoms([]);
 
   const handlePredict = async () => {
+    const predictUrl = `${backendUrl}/api/ai/predict`;
     try {
-      const response = await fetch(`${backendUrl}/api/ai/predict`, {
+      const response = await fetch(predictUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ symptoms: selectedSymptoms }),
       });
-      const data = await response.json();
+      const data = await readApiJson(response, predictUrl);
       if (!response.ok) {
         const msg =
           data.message ||
