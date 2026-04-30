@@ -1,0 +1,12 @@
+# Render Blueprint — deploy this service from the ai-predictor-dataset directory.
+# Dashboard: New → Blueprint → connect repo, set root to ai-predictor-dataset if monorepo.
+services:
+  - type: web
+    name: mediconnect-ai-predictor
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"

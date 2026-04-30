@@ -8,6 +8,7 @@ import connectCloudinary from "./config/cloudinary.js";
 import userRouter from "./routes/userRoute.js";
 import doctorRouter from "./routes/doctorRoute.js";
 import adminRouter from "./routes/adminRoute.js";
+import aiRouter from "./routes/aiRoute.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, ".env") });
@@ -49,6 +50,7 @@ const start = async () => {
   app.use("/api/user", userRouter);
   app.use("/api/admin", adminRouter);
   app.use("/api/doctor", doctorRouter);
+  app.use("/api/ai", aiRouter);
 
   app.get("/", (req, res) => {
     res.send("API Working");

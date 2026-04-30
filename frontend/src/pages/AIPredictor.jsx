@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useContext } from "react";
 import { toast } from "react-toastify";
 import { assets } from "../assets/assets";
+import { AppContext } from "../context/AppContext";
 
 const formatSymptomLabel = (symptom) =>
   symptom.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 const AIPredictor = () => {
+  const { backendUrl } = useContext(AppContext);
   const [selectedSymptoms, setSelectedSymptoms] = useState([]);
   const [symptoms, setSymptoms] = useState([]);
   const [predictionResult, setPredictionResult] = useState(null);
@@ -13,14 +15,19 @@ const AIPredictor = () => {
   const [symptomPanelOpen, setSymptomPanelOpen] = useState(false);
   const [symptomSearch, setSymptomSearch] = useState("");
   const panelRef = useRef(null);
-  const PREDICTOR_URL = import.meta.env.VITE_PREDICTOR_URL || "http://localhost:5001";
 
   useEffect(() => {
-    fetch(`${PREDICTOR_URL}/symptoms`)
-      .then((res) => res.json())
-      .then((data) => setSymptoms(data.symptoms || []))
-      .catch(() => toast.error("Could not load symptoms. Is the predictor API running?"));
-  }, [PREDICTOR_URL]);
+    if (!backendUrl) return;
+    fetch(`${backendUrl}/api/ai/symptoms`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || "Could not load symptoms");
+        }
+        setSymptoms(data.symptoms || []);
+      })
+      .catch((e) => toast.error(e.message || "Could not load symptoms. Check backend AI_SERVICE_URL."));
+  }, [backendUrl]);
 
   useEffect(() => {
     const onPointerDown = (e) => {
@@ -65,14 +72,19 @@ const AIPredictor = () => {
 
   const handlePredict = async () => {
     try {
-      const response = await fetch(`${PREDICTOR_URL}/predict`, {
+      const response = await fetch(`${backendUrl}/api/ai/predict`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ symptoms: selectedSymptoms }),
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "Prediction failed");
+        const msg =
+          data.message ||
+          (typeof data.detail === "string" ? data.detail : null) ||
+          data.error ||
+          "Prediction failed";
+        throw new Error(msg);
       }
       setPredictionResult(data);
       setActiveCategory("");
@@ -384,7 +396,7 @@ const AIPredictor = () => {
           >
             Run analysis
           </button>
-          <p className="mt-2 text-xs text-muted">API: {PREDICTOR_URL}</p>
+          <p className="mt-2 text-xs text-muted">API: {backendUrl}/api/ai</p>
         </div>
 
         <div className="rounded-2xl bg-card p-6 shadow-card ring-1 ring-slate-200/80 sm:p-8">

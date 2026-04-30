@@ -1,28 +1,28 @@
-# MediConnect AI predictor (Flask)
+# MediConnect AI predictor
 
 Disease suggestion from symptoms (learning project — not medical advice).
 
-## Run (use your Mac’s Python)
+**Production app:** FastAPI in `main.py` (`POST /predict`, `GET /symptoms`, `GET /health`). Deploy with **DEPLOY.md**.
 
-Cursor does not ship Python for your project. Use **Terminal** with `python3` from Homebrew or [python.org](https://www.python.org/downloads/).
+**Patient app:** calls the **Node backend** at `/api/ai/*`, which proxies to `AI_SERVICE_URL` (full URL ending in `/predict`).
 
-```bash
-cd ai-predictor-dataset
-chmod +x run.sh    # once
-./run.sh
-```
-
-Or manually:
+## Run locally (FastAPI)
 
 ```bash
 cd ai-predictor-dataset
 python3 -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python3 train_and_export.py   # creates svc.pkl
-python3 api.py                # http://127.0.0.1:5001
+python3 train_and_export.py   # if svc.pkl is missing
+uvicorn main:app --host 0.0.0.0 --port 10000
 ```
 
-In Cursor: **Command Palette** → **Python: Select Interpreter** → choose `ai-predictor-dataset/.venv/bin/python` after the venv exists.
+In **backend** `.env`: `AI_SERVICE_URL=http://127.0.0.1:10000/predict`
 
-The React app uses `VITE_PREDICTOR_URL` (default `http://localhost:5001`).
+## Legacy Flask (`api.py`)
+
+```bash
+python3 api.py   # http://127.0.0.1:5001 — only for local experiments
+```
+
+Or `./run.sh` (Flask on port 5001).
