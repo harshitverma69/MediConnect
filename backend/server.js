@@ -19,6 +19,11 @@ const port = process.env.PORT || 4000;
 app.use(cors());
 app.use(express.json());
 
+app.use((req, res, next) => {
+  console.log(`[express] ${req.method} ${req.originalUrl} from ${req.ip}`);
+  next();
+});
+
 const initializeConnections = async () => {
   await connectDB();
   console.log("MongoDB connected successfully.");
@@ -52,25 +57,14 @@ const start = async () => {
   app.use("/api/doctor", doctorRouter);
   app.use("/api/ai", aiRouter);
 
-  /** Public JSON — confirms Express env wiring (no secrets). Open in browser when debugging two-URL setup. */
+  /** Public JSON — confirms Express env wiring (no secrets). */
   app.get("/api/config", (_req, res) => {
     const raw = (process.env.AI_SERVICE_URL || "").trim();
-    let aiHost = null;
-    if (raw) {
-      try {
-        let u = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-        u = u.replace(/\/+$/, "");
-        if (/\/predict$/i.test(u)) u = u.slice(0, -"/predict".length);
-        aiHost = new URL(u).host;
-      } catch {
-        aiHost = null;
-      }
-    }
+    console.log(
+      `[config] /api/config hit; PORT=${port}; AI_SERVICE_URL set=${Boolean(raw)}; NODE_ENV=${process.env.NODE_ENV || "undefined"}`
+    );
     res.json({
-      ok: true,
-      service: "mediconnect-api",
       aiPredictorConfigured: Boolean(raw),
-      aiPredictorHost: aiHost,
     });
   });
 
