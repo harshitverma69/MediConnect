@@ -130,12 +130,15 @@ const proxyPredict = async (req, res) => {
   const symptoms = Array.isArray(body.symptoms) ? body.symptoms : [];
 
   try {
-    console.log("[ai-proxy] POST predict →", predictUrl, "symptoms:", symptoms.length);
+    const requestBody = { symptoms };
+    console.log("[ai-proxy] Final URL being called:", predictUrl);
+    console.log("[ai-proxy] Request body:", JSON.stringify(requestBody));
     const upstream = await fetchWithTimeout(predictUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ symptoms }),
+      body: JSON.stringify(requestBody),
     });
+    console.log("[ai-proxy] Response status:", upstream.status);
     const text = await upstream.text();
     let data;
     try {
@@ -156,7 +159,7 @@ const proxyPredict = async (req, res) => {
       console.error("[ai-proxy] Predict upstream error:", upstream.status, msg);
       return res.status(upstream.status).json({ success: false, message: msg });
     }
-    console.log("[ai-proxy] Predict OK, disease:", data?.disease ?? "(unknown)");
+    console.log("[ai-proxy] Predict OK, disease:", data?.disease ?? "(unknown)", "Full response:", JSON.stringify(data));
     return res.json(data);
   } catch (err) {
     const aborted = err.name === "AbortError";
